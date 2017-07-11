@@ -154,7 +154,7 @@ def parse_wp_xml(file):
                 'title': gi('title'),
                 'link': gi('link'),
                 'author': gi('dc:creator'),
-                'date': gi('wp:post_date_gmt'),
+                'date': gi('wp:post_date'),
                 'slug': gi('wp:post_name'),
                 'status': gi('wp:status'),
                 'type': gi('wp:post_type'),
@@ -281,6 +281,9 @@ def write_jekyll(data, target_format):
             if(i[field] == value):
                 skip_item = True
                 break
+        if(i['status'] == 'Draft'):
+            skip_item = True
+            break
 
         if(skip_item):
             continue
@@ -290,17 +293,15 @@ def write_jekyll(data, target_format):
         out = None
         yaml_header = {
             'title': i['title'],
-            'link': i['link'],
             'author': i['author'],
             'date': datetime.strptime(
                 i['date'], '%Y-%m-%d %H:%M:%S').replace(tzinfo=UTC()),
             'slug': i['slug'],
-            'wordpress_id': int(i['wp_id']),
             'comments': i['comments'],
         }
         if len(i['excerpt']) > 0:
             yaml_header['excerpt'] = i['excerpt']
-        if i['status'] != u'publish':
+        if i['status'] != 'publish':
             yaml_header['published'] = False
 
         if i['type'] == 'post':
@@ -308,6 +309,21 @@ def write_jekyll(data, target_format):
             fn = get_item_path(i, dir='_posts')
             out = open_file(fn)
             yaml_header['layout'] = 'post'
+        elif i['type'] == 'people':
+            i['uid'] = get_item_uid(i, date_prefix=False)
+            fn = get_item_path(i, dir='people')
+            out = open_file(fn)
+            yaml_header['layout'] = 'people'
+        elif i['type'] == 'events':
+            i['uid'] = get_item_uid(i, date_prefix=False)
+            fn = get_item_path(i, dir='events')
+            out = open_file(fn)
+            yaml_header['layout'] = 'event'
+        elif i['type'] == 'research':
+            i['uid'] = get_item_uid(i, date_prefix=False)
+            fn = get_item_path(i, dir='research')
+            out = open_file(fn)
+            yaml_header['layout'] = 'research'
         elif i['type'] == 'page':
             i['uid'] = get_item_uid(i)
             # Chase down parent path, if any
