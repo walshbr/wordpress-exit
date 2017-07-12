@@ -205,7 +205,8 @@ def parse_wp_xml(file):
                 'department': gi('wp:postmeta-person_department'),
                 'status': gi('wp:postmeta-person_status'),
                 'last_name': gi('wp:postmeta-person_family_name'),
-                'first_name': gi('wp:postmeta-person_given_name')
+                'first_name': gi('wp:postmeta-person_given_name'),
+                'position': gi('wp:postmeta-person_title')
             }
 
             export_items.append(export_item)
@@ -337,6 +338,12 @@ def write_jekyll(data, target_format):
         else:
             clean_twitter = i['twitter']
 
+        # if i['status'] == 'current':
+        #     verb = 'is'
+        # else:
+        #     verb = 'was'
+        #
+        # short_bio = i['title'] + ' ' + verb + ' ' + i['position']
         yaml_header = {
             'name': i['title'],
             # 'author': i['author'],
@@ -351,7 +358,9 @@ def write_jekyll(data, target_format):
             'status': i['status'],
             'short_bio': '',
             'first_name': i['first_name'],
-            'last_name': i['last_name']
+            'last_name': i['last_name'],
+            'position': i['position'],
+            'location': ''
         }
         if len(i['excerpt']) > 0:
             yaml_header['excerpt'] = i['excerpt']
