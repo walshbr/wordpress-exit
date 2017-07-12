@@ -196,13 +196,16 @@ def parse_wp_xml(file):
                 'comments': gi('wp:comment_status') == u'open',
                 'taxanomies': export_taxanomies,
                 'bio': body,
+                'body': body,
                 'excerpt': excerpt,
                 'img_srcs': img_srcs,
                 'email': gi('wp:postmeta-person_email'),
                 'twitter': gi('wp:postmeta-person_twitter'),
                 'website': gi('wp:postmeta-person_url'),
                 'department': gi('wp:postmeta-person_department'),
-                'status': gi('wp:postmeta-person_status')
+                'status': gi('wp:postmeta-person_status'),
+                'last_name': gi('wp:postmeta-person_family_name'),
+                'first_name': gi('wp:postmeta-person_given_name')
             }
 
             export_items.append(export_item)
@@ -329,6 +332,10 @@ def write_jekyll(data, target_format):
         sys.stdout.write('.')
         sys.stdout.flush()
         out = None
+        if i['twitter'][0] == '@':
+            clean_twitter = i['twitter'][1:]
+        else:
+            clean_twitter = i['twitter']
 
         yaml_header = {
             'name': i['title'],
@@ -338,37 +345,39 @@ def write_jekyll(data, target_format):
             'slug': i['slug'],
             # 'comments': i['comments'],
             'email': i['email'],
-            'twitter': i['twitter'],
+            'twitter': clean_twitter,
             'department': i['department'],
             'website': i['website'],
             'status': i['status'],
-            'bio': i['bio']
+            'short_bio': '',
+            'first_name': i['first_name'],
+            'last_name': i['last_name']
         }
         if len(i['excerpt']) > 0:
             yaml_header['excerpt'] = i['excerpt']
         if i['status'] != 'publish':
-            yaml_header['published'] = False
-
+            # yaml_header['published'] = False
+            pass
         if i['type'] == 'post':
             i['uid'] = get_item_uid(i, date_prefix=True)
             fn = get_item_path(i, dir='_posts')
             out = open_file(fn)
-            # yaml_header['layout'] = 'post'
+            yaml_header['layout'] = 'post'
         elif i['type'] == 'people':
             i['uid'] = get_item_uid(i, date_prefix=False)
             fn = get_item_path(i, dir='people')
-            out = open_file(fn[:-3] + '.yml')
-            # yaml_header['layout'] = 'people'
+            out = open_file(fn)
+            yaml_header['layout'] = 'people'
         elif i['type'] == 'events':
             i['uid'] = get_item_uid(i, date_prefix=False)
             fn = get_item_path(i, dir='events')
             out = open_file(fn)
-            # yaml_header['layout'] = 'event'
+            yaml_header['layout'] = 'event'
         elif i['type'] == 'research':
             i['uid'] = get_item_uid(i, date_prefix=False)
             fn = get_item_path(i, dir='research')
             out = open_file(fn)
-            # yaml_header['layout'] = 'research'
+            yaml_header['layout'] = 'research'
         elif i['type'] == 'page':
             i['uid'] = get_item_uid(i)
             # Chase down parent path, if any
@@ -414,17 +423,17 @@ def write_jekyll(data, target_format):
                         continue
                     tax_out[t_name].append(tvalue)
 
-            # out.write('---\n')
+            out.write('---\n')
             if len(yaml_header) > 0:
                 out.write(toyaml(yaml_header))
             if len(tax_out) > 0:
                 out.write(toyaml(tax_out))
 
-            # out.write('---\n\n')
-            # try:
-            #     out.write(html2fmt(i['body'], target_format))
-            # except:
-            #     print '\n Parse error on: ' + i['title']
+            out.write('---\n\n')
+            try:
+                out.write(html2fmt(i['body'], target_format))
+            except:
+                print '\n Parse error on: ' + i['title']
 
             out.close()
     print '\n'
