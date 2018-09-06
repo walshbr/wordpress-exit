@@ -81,7 +81,6 @@ def html2fmt(html, target_format):
 def parse_wp_xml(file):
     parser = ns_tracker_tree_builder()
     tree = ElementTree()
-    print 'reading: ' + wpe
     root = tree.parse(file, parser)
     ns = parser.namespaces
     ns[''] = ''
@@ -99,8 +98,10 @@ def parse_wp_xml(file):
         export_items = []
         xml_items = c.findall('item')
         for i in xml_items:
+            # go through each item
             if i.find(ns['wp'] + 'status').text == 'draft':
-                break
+                pass
+            # break on draft
             taxanomies = i.findall('category')
             export_taxanomies = {}
             for tax in taxanomies:
@@ -115,7 +116,6 @@ def parse_wp_xml(file):
                     if t_domain not in export_taxanomies:
                         export_taxanomies[t_domain] = []
                     export_taxanomies[t_domain].append(t_entry)
-
             def gi(q, unicode_wrap=True, empty=False):
                 namespace = ''
                 tag = ''
@@ -123,47 +123,34 @@ def parse_wp_xml(file):
                     namespace, tag = q.split(':', 1)
                 else:
                     tag = q
-                try:
-                    if tag.startswith('postmeta'):
-                        print(tag)
-                        print('poop')
-                        print(i.find('title').text)
-                        real_tag = tag.split('-')[1]
-
-                        all_postmeta = i.findall(ns[namespace] + 'postmeta')
+                if tag.startswith('postmeta'):
+                    print('first')
+                    real_tag = tag.split('-')[1]
+                    # get all the post metadata
+                    all_postmeta = i.findall(ns[namespace] + 'postmeta')
+                    # problem is it is looping over 
+                    if real_tag in ['_event_all_day','_event_rsvp','_event_start_time', '_event_end_time', '_event_rsvp', '_event_end_date']:
                         for postmeta in all_postmeta:
-                            if real_tag == 'person_status':
-                                print(real_tag)
+                            if postmeta.find(ns[namespace] + 'meta_key').text == real_tag == '_event_all_day':
+                                return 1
+                            elif postmeta.find(ns[namespace] + 'meta_key').text == real_tag == '_event_rsvp':
+                                return 0
+                            elif postmeta.find(ns[namespace] + 'meta_key').text == real_tag:
+                                return unicode(postmeta.find(ns[namespace] + 'meta_value').text)
+                    else:
+                        for postmeta in all_postmeta:
                             if postmeta.find(ns[namespace] + 'meta_key').text == real_tag:
                                 print('success')
-                                postmeta.find(ns[namespace] + 'meta_value').text
-                                print(postmeta.find(ns[namespace] + 'meta_value').text)
-                                print('second')
-                                if postmeta.find(ns[namespace] + 'meta_value').text == 'Choose a Status':
-                                    result = 'not_current'
-                                elif postmeta.find(ns[namespace] + 'meta_value').text == 'Choose a Department':
-                                    result = 'None'
-                                else:
-                                    result = postmeta.find(ns[namespace] + 'meta_value').text
-                            elif real_tag == 'person_status':
-                                print 'Status not found'
-                                result = 'not_current'
-                            else:
-                                print(postmeta.find(ns[namespace] + 'meta_key').text)
-                                print(postmeta.find(ns[namespace] + 'meta_value').text)
-                                pass
-                    else:
-                        result = i.find(ns[namespace] + tag).text
-                        print result.encode('utf-8')
-                except AttributeError:
-                    result = 'No Content Found'
-                    if empty:
-                        result = ''
-                if unicode_wrap:
-                    result = unicode(result)
-                return result
-
+                                print(real_tag)
+                                return unicode(postmeta.find(ns[namespace] + 'meta_value').text)
+                            # raw_input()
+                else:
+                    print 'second'
+                    return unicode(i.find(ns[namespace] + tag).text)
+                return None
+            # raw_input()
             body = gi('content:encoded')
+            print(body)
             for key in body_replace:
                 # body = body.replace(key, body_replace[key])
                 body = re.sub(key, body_replace[key], body)
@@ -179,7 +166,6 @@ def parse_wp_xml(file):
                     print 'could not parse html: ' + body
             # print img_srcs
 
-            excerpt = gi('excerpt:encoded', empty=True)
 
             export_item = {
                 'title': gi('title'),
@@ -194,7 +180,6 @@ def parse_wp_xml(file):
                 'comments': gi('wp:comment_status') == u'open',
                 'taxanomies': export_taxanomies,
                 'body': body,
-                'excerpt': excerpt,
                 'img_srcs': img_srcs,
                 'start_time': gi('wp:postmeta-_event_start_time'),
                 'end_time': gi('wp:postmeta-_event_end_time'),
@@ -202,8 +187,12 @@ def parse_wp_xml(file):
                 'start_date': gi('wp:postmeta-_event_start_date'),
                 'end_date': gi('wp:postmeta-_event_end_date'),
                 'rsvp': gi('wp:postmeta-_event_rsvp'),
+                'location': gi('wp:postmeta-_location_id'),
             }
-
+            if export_item['location']:
+                export_item['location'] = int(export_item['location'])
+            else:
+                export_item['location'] = None
             export_items.append(export_item)
 
         return export_items
@@ -310,7 +299,8 @@ def write_jekyll(data, target_format):
         # if src not in attachments[dir]:
         #     print target_name
         return target_file
-
+    print('**************')
+    print(len(data['items']))
     for i in data['items']:
         skip_item = False
 
@@ -345,9 +335,8 @@ def write_jekyll(data, target_format):
             'start_date': i['start_date'],
             'end_date': i['end_date'],
             'rsvp': i['rsvp'],
+            'location': i['location']
         }
-        if len(i['excerpt']) > 0:
-            yaml_header['excerpt'] = i['excerpt']
         if i['status'] != 'publish':
             yaml_header['published'] = False
 
@@ -365,7 +354,7 @@ def write_jekyll(data, target_format):
             i['uid'] = get_item_uid(i, date_prefix=False)
             fn = get_item_path(i, dir='events')
             out = open_file(fn)
-            yaml_header['layout'] = 'event'
+            yaml_header['layout'] = 'events'
         elif i['type'] == 'research':
             i['uid'] = get_item_uid(i, date_prefix=False)
             fn = get_item_path(i, dir='research')
@@ -434,6 +423,7 @@ def write_jekyll(data, target_format):
 wp_exports = glob(wp_exports + '/*.xml')
 for wpe in wp_exports:
     data = parse_wp_xml(wpe)
+    print(len(data['items']))
     write_jekyll(data, target_format)
 
 print 'done'
